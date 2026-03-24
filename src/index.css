@@ -1,96 +1,82 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
-
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 160 20% 97%;
+    --foreground: 200 25% 12%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 160 15% 99%;
+    --card-foreground: 200 25% 12%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 160 15% 99%;
+    --popover-foreground: 200 25% 12%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 168 55% 38%;
+    --primary-foreground: 160 20% 97%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 200 25% 94%;
+    --secondary-foreground: 200 25% 20%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 160 12% 93%;
+    --muted-foreground: 200 10% 48%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 172 40% 90%;
+    --accent-foreground: 172 55% 25%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 60% 55%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 160 15% 88%;
+    --input: 160 15% 88%;
+    --ring: 168 55% 38%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
 
-    --sidebar-background: 0 0% 98%;
+    /* LHD Custom tokens */
+    --dna-green: 168 55% 38%;
+    --dna-green-light: 168 45% 55%;
+    --dna-teal: 185 45% 42%;
+    --dna-blue: 210 45% 50%;
+    --dna-warm: 35 60% 55%;
+    --dna-rose: 350 40% 58%;
+    --dna-violet: 270 35% 55%;
 
-    --sidebar-foreground: 240 5.3% 26.1%;
+    --risk-low: 145 50% 45%;
+    --risk-moderate: 40 70% 52%;
+    --risk-high: 0 55% 55%;
 
-    --sidebar-primary: 240 5.9% 10%;
+    --confidence-fill: 168 55% 38%;
 
-    --sidebar-primary-foreground: 0 0% 98%;
+    --agent-baseline: 168 55% 38%;
+    --agent-anomaly: 270 35% 55%;
+    --agent-risk: 40 70% 52%;
+    --agent-explain: 210 45% 50%;
+    --agent-compliance: 185 45% 42%;
 
-    --sidebar-accent: 240 4.8% 95.9%;
+    --glow-primary: 0 0% 0% / 0.04;
+    --glow-agent: 168 55% 38% / 0.12;
 
-    --sidebar-accent-foreground: 240 5.9% 10%;
+    --gradient-dna: linear-gradient(135deg, hsl(168 55% 38%), hsl(185 45% 42%), hsl(210 45% 50%));
+    --gradient-card: linear-gradient(180deg, hsl(160 15% 99%), hsl(160 12% 96%));
+    --gradient-hero: radial-gradient(ellipse at 30% 20%, hsl(168 55% 38% / 0.08), transparent 60%),
+                     radial-gradient(ellipse at 70% 80%, hsl(210 45% 50% / 0.06), transparent 50%);
 
-    --sidebar-border: 220 13% 91%;
+    --shadow-soft: 0 2px 16px -4px hsl(200 25% 12% / 0.06);
+    --shadow-card: 0 4px 24px -8px hsl(200 25% 12% / 0.08);
+    --shadow-elevated: 0 12px 40px -12px hsl(200 25% 12% / 0.12);
 
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
-
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-background: 160 15% 97%;
+    --sidebar-foreground: 200 25% 20%;
+    --sidebar-primary: 168 55% 38%;
+    --sidebar-primary-foreground: 160 20% 97%;
+    --sidebar-accent: 172 40% 90%;
+    --sidebar-accent-foreground: 172 55% 25%;
+    --sidebar-border: 160 15% 88%;
+    --sidebar-ring: 168 55% 38%;
   }
 }
 
@@ -98,8 +84,60 @@ All colors MUST be HSL.
   * {
     @apply border-border;
   }
-
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-body antialiased;
   }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display;
+  }
+}
+
+@layer utilities {
+  .text-gradient-dna {
+    background: var(--gradient-dna);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .bg-gradient-hero {
+    background: var(--gradient-hero);
+  }
+  .bg-gradient-card {
+    background: var(--gradient-card);
+  }
+  .shadow-soft {
+    box-shadow: var(--shadow-soft);
+  }
+  .shadow-card {
+    box-shadow: var(--shadow-card);
+  }
+  .shadow-elevated {
+    box-shadow: var(--shadow-elevated);
+  }
+  .glow-agent {
+    box-shadow: 0 0 20px 4px hsl(var(--glow-agent));
+  }
+}
+
+/* Agent pulse animation */
+@keyframes agent-pulse {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+@keyframes strand-flow {
+  0% { stroke-dashoffset: 100; }
+  100% { stroke-dashoffset: 0; }
+}
+@keyframes float-gentle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+.animate-agent-pulse {
+  animation: agent-pulse 3s ease-in-out infinite;
+}
+.animate-strand-flow {
+  animation: strand-flow 4s linear infinite;
+}
+.animate-float-gentle {
+  animation: float-gentle 6s ease-in-out infinite;
 }
