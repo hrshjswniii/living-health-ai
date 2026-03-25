@@ -1,3 +1,3 @@
-# Welcome to your Lovable project
+# Living Health DNA
 
 TODO: Document your project here
