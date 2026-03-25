@@ -3,9 +3,15 @@ import { FloatingAgentNodes } from "./FloatingAgentNodes";
 import { Shield, Brain, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import { useApp } from "@/context/AppContext";
 
 export const HeroSection = () => {
   const navigate = useNavigate();
+  const { isAuthenticated } = useApp();
+
+  const handleEnter = () => {
+    navigate(isAuthenticated ? "/dashboard" : "/auth");
+  };
 
   return (
     <section className="relative min-h-screen flex items-center justify-center bg-gradient-hero overflow-hidden">
@@ -49,7 +55,7 @@ export const HeroSection = () => {
           transition={{ duration: 0.7, delay: 0.45 }}
           className="flex flex-col sm:flex-row gap-4"
         >
-          <Button size="lg" className="text-base px-8 py-6" onClick={() => navigate("/dashboard")}>
+          <Button size="lg" className="text-base px-8 py-6" onClick={handleEnter}>
             <Brain className="mr-2 h-5 w-5" />
             Enter Health Dashboard
           </Button>
