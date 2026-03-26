@@ -9,21 +9,36 @@ import { useApp, UserRole } from "@/context/AppContext";
 const Auth = () => {
   const [step, setStep] = useState<1 | 2>(1);
   const [role, setRole] = useState<UserRole>(null);
+  const [mode, setMode] = useState<"login" | "register">("login");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { setUser } = useApp();
+  const { login, register } = useApp();
 
   const handleRoleSelect = (r: UserRole) => {
     setRole(r);
     setStep(2);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !email.trim() || !role) return;
-    setUser(role, name.trim(), email.trim());
-    navigate("/dashboard");
+    if (!email.trim() || !password.trim()) return;
+    if (mode === "register" && !name.trim()) return;
+    
+    setLoading(true);
+    let success = false;
+    if (mode === "login") {
+      success = await login(email.trim(), password.trim());
+    } else {
+      success = await register(name.trim(), email.trim(), password.trim(), role || "patient");
+    }
+    setLoading(false);
+
+    if (success) {
+      navigate("/dashboard");
+    }
   };
 
   return (
@@ -78,25 +93,51 @@ const Auth = () => {
               </motion.div>
             ) : (
               <motion.div key="step2" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <button onClick={() => setStep(1)} className="text-sm text-muted-foreground hover:text-foreground mb-4 flex items-center gap-1">
-                  ← Back
-                </button>
-                <h2 className="font-display font-bold text-xl mb-1">
-                  {role === "patient" ? "Welcome, Patient" : "Welcome, Doctor"}
-                </h2>
-                <p className="text-sm text-muted-foreground mb-6">Enter your details to continue</p>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium mb-1.5 block">Full Name</label>
-                    <Input placeholder={role === "doctor" ? "Dr. Sarah Chen" : "John Doe"} value={name} onChange={(e) => setName(e.target.value)} required />
+                <div className="flex justify-between items-center mb-4">
+                  <button onClick={() => setStep(1)} className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1">
+                    ← Back
+                  </button>
+                  <div className="flex gap-2 text-sm bg-muted rounded-lg p-1">
+                    <button 
+                      onClick={() => setMode("login")} 
+                      className={`px-3 py-1.5 rounded-md transition-colors ${mode === "login" ? "bg-background shadow font-medium" : "text-muted-foreground"}`}
+                    >
+                      Login
+                    </button>
+                    <button 
+                      onClick={() => setMode("register")} 
+                      className={`px-3 py-1.5 rounded-md transition-colors ${mode === "register" ? "bg-background shadow font-medium" : "text-muted-foreground"}`}
+                    >
+                      Register
+                    </button>
                   </div>
+                </div>
+                
+                <h2 className="font-display font-bold text-xl mb-1">
+                  {mode === "login" ? "Welcome Back" : (role === "patient" ? "Welcome, Patient" : "Welcome, Doctor")}
+                </h2>
+                <p className="text-sm text-muted-foreground mb-6">
+                  {mode === "login" ? "Enter your credentials to login" : "Enter your details to create an account"}
+                </p>
+                
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  {mode === "register" && (
+                    <div>
+                      <label className="text-sm font-medium mb-1.5 block">Full Name</label>
+                      <Input placeholder={role === "doctor" ? "Dr. Sarah Chen" : "John Doe"} value={name} onChange={(e) => setName(e.target.value)} required />
+                    </div>
+                  )}
                   <div>
                     <label className="text-sm font-medium mb-1.5 block">Email</label>
                     <Input type="email" placeholder="name@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
                   </div>
-                  <Button type="submit" className="w-full" size="lg">
+                  <div>
+                    <label className="text-sm font-medium mb-1.5 block">Password</label>
+                    <Input type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                  </div>
+                  <Button type="submit" className="w-full" size="lg" disabled={loading}>
                     <ArrowRight className="mr-2 h-4 w-4" />
-                    Enter Dashboard
+                    {loading ? "Processing..." : (mode === "login" ? "Login" : "Enter Dashboard")}
                   </Button>
                 </form>
               </motion.div>

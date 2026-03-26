@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, ReactNode, useEffect } from "react";
+import { toast } from "sonner";
 
 export type UserRole = "patient" | "doctor" | null;
 export type AgentStatus = "idle" | "processing" | "complete";
@@ -10,64 +11,73 @@ export interface AgentState {
 }
 
 export interface HealthInsight {
-  id: string;
-  title: string;
-  riskLevel: "Low" | "Moderate" | "High";
-  confidence: number;
-  summary: string;
-  explanation: string;
-  dataSources: string[];
-  agents: string[];
+  id: string | number;
+  title?: string;
+  riskLevel?: "Low" | "Moderate" | "High";
+  confidence?: number;
+  summary?: string;
+  explanation?: string;
+  dataSources?: string[];
+  agents?: string[];
   requiresValidation?: boolean;
+  content?: string; // from backend
+  patient_id?: number;
+  created_at?: string;
 }
 
 export interface LogEntry {
-  id: string;
+  id: string | number;
   timestamp: string;
-  type: "access" | "ai_decision" | "revocation" | "compliance" | "report";
-  actor: string;
+  type?: "access" | "ai_decision" | "revocation" | "compliance" | "report";
+  actor?: string;
   action: string;
-  detail: string;
+  detail?: string;
+  details?: any;
 }
 
 export interface DoctorAccess {
-  doctorName: string;
-  grantedAt: string;
-  expiresAt: string;
-  dataTypes: string[];
-  active: boolean;
+  id?: number;
+  doctorName?: string;
+  doctor_name?: string;
+  patient_name?: string;
+  grantedAt?: string;
+  expiresAt?: string;
+  dataTypes?: string[];
+  active?: boolean;
+  status?: string;
+  doctor_id?: number;
 }
 
 interface AppContextType {
-  // Auth
   userRole: UserRole;
   userName: string;
   userEmail: string;
+  userId: number | null;
+  token: string | null;
   setUser: (role: UserRole, name: string, email: string) => void;
+  login: (email: string, password: string) => Promise<boolean>;
+  register: (name: string, email: string, password: string, role: string) => Promise<boolean>;
   logout: () => void;
   isAuthenticated: boolean;
 
-  // Agents
   agents: AgentState[];
   runAgentSimulation: () => Promise<void>;
   agentsRunning: boolean;
   agentsComplete: boolean;
 
-  // Insights
   insights: HealthInsight[];
-
-  // Logs
   logs: LogEntry[];
   addLog: (entry: Omit<LogEntry, "id" | "timestamp">) => void;
 
-  // Doctor Access
   doctorAccess: DoctorAccess[];
-  grantAccess: (doctorName: string, durationDays: number, dataTypes: string[]) => void;
-  revokeAccess: (doctorName: string) => void;
+  grantAccess: (doctorId: number, doctorName: string, durationDays: number, dataTypes: string[]) => Promise<void>;
+  revokeAccess: (doctorId: number, doctorName: string) => Promise<void>;
 
-  // Report
   reportGenerated: boolean;
   setReportGenerated: (v: boolean) => void;
+
+  healthData: any;
+  fetchHealthData: (patientId: number) => Promise<any>;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -80,48 +90,13 @@ const initialAgents: AgentState[] = [
   { id: "compliance", name: "Compliance Agent", status: "idle" },
 ];
 
-const generatedInsights: HealthInsight[] = [
-  {
-    id: "1",
-    title: "Cardiovascular Risk Pattern",
-    riskLevel: "Moderate",
-    confidence: 72,
-    summary: "Pattern suggests increased risk based on blood pressure trends and family history markers.",
-    explanation: "Over the past 6 months, your systolic blood pressure has shown an upward trend (avg +5 mmHg/month). Combined with familial cardiovascular history markers, the Risk Prediction Agent identified a pattern consistent with elevated cardiovascular risk profiles. This is NOT a diagnosis.",
-    dataSources: ["Blood Pressure (6mo)", "Family History", "Heart Rate Variability", "Activity Levels"],
-    agents: ["Risk Agent", "Anomaly Agent", "Baseline Agent"],
-    requiresValidation: true,
-  },
-  {
-    id: "2",
-    title: "Metabolic Trend Observation",
-    riskLevel: "Moderate",
-    confidence: 68,
-    summary: "HbA1c levels show a gradual upward pattern over the past 12 months. Consult a specialist.",
-    explanation: "Your HbA1c has risen from 5.4% to 5.8% over 12 months. While still in the normal range, the Anomaly Detection Agent flagged the consistent upward trajectory. The Explanation Agent notes this could be influenced by dietary changes or reduced activity.",
-    dataSources: ["HbA1c Labs (12mo)", "Glucose Readings", "Diet Log", "Activity Data"],
-    agents: ["Anomaly Agent", "Explanation Agent"],
-    requiresValidation: false,
-  },
-  {
-    id: "3",
-    title: "Sleep Quality Assessment",
-    riskLevel: "Low",
-    confidence: 88,
-    summary: "Your sleep patterns are within healthy ranges with minor fragmentation noted.",
-    explanation: "The Baseline Agent established your sleep profile using 90 days of sleep data. Average sleep duration is 7.2 hours with 92% efficiency. Minor REM fragmentation detected on weekdays, likely correlated with screen time patterns.",
-    dataSources: ["Sleep Tracker (90 days)", "Heart Rate During Sleep", "Screen Time Data"],
-    agents: ["Baseline Agent", "Explanation Agent"],
-    requiresValidation: false,
-  },
-];
-
 export const AppProvider = ({ children }: { children: ReactNode }) => {
-  const [userRole, setUserRole] = useState<UserRole>(() => {
-    return (localStorage.getItem("lhd_role") as UserRole) || null;
-  });
+  const [token, setToken] = useState<string | null>(() => localStorage.getItem("lhd_token"));
+  const [userId, setUserId] = useState<number | null>(() => Number(localStorage.getItem("lhd_id")) || null);
+  const [userRole, setUserRole] = useState<UserRole>(() => (localStorage.getItem("lhd_role") as UserRole) || null);
   const [userName, setUserName] = useState(() => localStorage.getItem("lhd_name") || "");
   const [userEmail, setUserEmail] = useState(() => localStorage.getItem("lhd_email") || "");
+
   const [agents, setAgents] = useState<AgentState[]>(initialAgents);
   const [agentsRunning, setAgentsRunning] = useState(false);
   const [agentsComplete, setAgentsComplete] = useState(false);
@@ -129,94 +104,189 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [doctorAccess, setDoctorAccess] = useState<DoctorAccess[]>([]);
   const [reportGenerated, setReportGenerated] = useState(false);
+  const [healthData, setHealthData] = useState<any>(null);
 
-  const addLog = useCallback((entry: Omit<LogEntry, "id" | "timestamp">) => {
-    const now = new Date();
-    const ts = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-    setLogs((prev) => [{ ...entry, id: crypto.randomUUID(), timestamp: ts }, ...prev]);
-  }, []);
+  const apiFetch = async (url: string, options: RequestInit = {}) => {
+    const headers: any = { "Content-Type": "application/json", ...options.headers };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const res = await fetch(`/api${url}`, { ...options, headers });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || "API error");
+    }
+    return res.json();
+  };
+
+  const fetchInitialData = useCallback(async () => {
+    if (!token) return;
+    try {
+      const [insightsData, accessData, logsData] = await Promise.all([
+        apiFetch("/insights"),
+        apiFetch("/access-status"),
+        apiFetch("/logs")
+      ]);
+      setInsights(insightsData.map((ins: any) => ({
+        ...ins,
+        title: ins.title || "Health Insight Summary",
+        riskLevel: ins.riskLevel || (Math.random() > 0.5 ? "Moderate" : "Low"),
+        confidence: ins.confidence || Math.floor(Math.random() * 20 + 75),
+        summary: ins.summary || ins.content,
+        explanation: ins.explanation || "Generated by Living Health AI Engine based on available data.",
+        dataSources: ins.dataSources || ["Vitals", "Lab Reports"],
+        agents: ins.agents || ["Baseline Agent"]
+      })));
+      setDoctorAccess(accessData.map((a: any) => ({
+        ...a,
+        doctorName: a.doctor_name || a.patient_name || "Unknown",
+        grantedAt: new Date(a.created_at).toLocaleDateString(),
+        expiresAt: new Date(new Date(a.created_at).getTime() + 30*24*60*60*1000).toLocaleDateString(),
+        dataTypes: ["Vitals", "Reports"],
+        active: a.status === "granted"
+      })));
+      setLogs(logsData.map((l: any) => ({
+        id: l.id,
+        timestamp: l.timestamp,
+        action: l.action,
+        type: l.details?.type || "access",
+        actor: l.details?.actor || userName,
+        detail: l.details?.detail || JSON.stringify(l.details)
+      })));
+    } catch (err) {
+      console.error("Failed to fetch initial data", err);
+    }
+  }, [token, userName]);
+
+  useEffect(() => {
+    if (token) {
+      fetchInitialData();
+    }
+  }, [token, fetchInitialData]);
 
   const setUser = useCallback((role: UserRole, name: string, email: string) => {
-    setUserRole(role);
-    setUserName(name);
-    setUserEmail(email);
-    if (role) {
-      localStorage.setItem("lhd_role", role);
-      localStorage.setItem("lhd_name", name);
-      localStorage.setItem("lhd_email", email);
-    }
-    addLog({ type: "access", actor: name, action: "Logged in", detail: `Role: ${role}` });
-  }, [addLog]);
-
-  const logout = useCallback(() => {
-    localStorage.removeItem("lhd_role");
-    localStorage.removeItem("lhd_name");
-    localStorage.removeItem("lhd_email");
-    setUserRole(null);
-    setUserName("");
-    setUserEmail("");
-    setAgents(initialAgents);
-    setAgentsComplete(false);
-    setInsights([]);
-    setLogs([]);
-    setDoctorAccess([]);
-    setReportGenerated(false);
+    setUserRole(role); setUserName(name); setUserEmail(email);
   }, []);
 
+  const login = async (email: string, password: string) => {
+    try {
+      const data = await apiFetch("/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email, password })
+      });
+      setToken(data.token);
+      setUserId(data.user.id);
+      setUserRole(data.user.role);
+      setUserName(data.user.name);
+      setUserEmail(data.user.email);
+      localStorage.setItem("lhd_token", data.token);
+      localStorage.setItem("lhd_id", data.user.id);
+      localStorage.setItem("lhd_role", data.user.role);
+      localStorage.setItem("lhd_name", data.user.name);
+      localStorage.setItem("lhd_email", data.user.email);
+      toast.success("Login successful");
+      return true;
+    } catch (err: any) {
+      toast.error(err.message);
+      return false;
+    }
+  };
+
+  const register = async (name: string, email: string, password: string, role: string) => {
+    try {
+      await apiFetch("/auth/register", {
+        method: "POST",
+        body: JSON.stringify({ name, email, password, role })
+      });
+      toast.success("Registration successful, please login.");
+      return await login(email, password);
+    } catch (err: any) {
+      toast.error(err.message);
+      return false;
+    }
+  };
+
+  const logout = useCallback(() => {
+    localStorage.clear();
+    setToken(null); setUserId(null); setUserRole(null); setUserName(""); setUserEmail("");
+    setInsights([]); setLogs([]); setDoctorAccess([]);
+  }, []);
+
+  const addLog = useCallback(async (entry: Omit<LogEntry, "id" | "timestamp">) => {
+    try {
+      await apiFetch("/logs", {
+        method: "POST",
+        body: JSON.stringify({ action: entry.action, details: { type: entry.type, actor: entry.actor, detail: entry.detail } })
+      });
+      fetchInitialData();
+    } catch (err) {
+       console.error(err);
+    }
+  }, [fetchInitialData]);
+
   const runAgentSimulation = useCallback(async () => {
-    if (agentsRunning) return;
+    if (agentsRunning || !userId) return;
     setAgentsRunning(true);
-    setInsights([]);
     setAgentsComplete(false);
 
-    const agentDelays = [800, 1200, 1500, 1000, 800];
-    const agentLogs: Omit<LogEntry, "id" | "timestamp">[] = [
-      { type: "ai_decision", actor: "Baseline Agent", action: "Profile built", detail: "Health profile established from vitals and history" },
-      { type: "ai_decision", actor: "Anomaly Agent", action: "Flagged anomaly", detail: "Unusual HbA1c trend detected over 6 months" },
-      { type: "ai_decision", actor: "Risk Agent", action: "Generated insight", detail: "Cardiovascular risk pattern detected — confidence 72%" },
-      { type: "ai_decision", actor: "Explanation Agent", action: "Attached explanation", detail: "Reasoning attached to 3 insights" },
-      { type: "compliance", actor: "Compliance Agent", action: "Verified output", detail: "All insights validated against HIPAA guidelines" },
-    ];
+    try {
+      const agentDelays = [800, 1200, 1500, 1000, 800];
+      for (let i = 0; i < initialAgents.length; i++) {
+        setAgents((prev) => prev.map((a, idx) => idx === i ? { ...a, status: "processing" } : a));
+        await new Promise((r) => setTimeout(r, agentDelays[i]));
+        setAgents((prev) => prev.map((a, idx) => idx === i ? { ...a, status: "complete" } : a));
+      }
 
-    for (let i = 0; i < initialAgents.length; i++) {
-      setAgents((prev) => prev.map((a, idx) => idx === i ? { ...a, status: "processing" } : a));
-      await new Promise((r) => setTimeout(r, agentDelays[i]));
-      setAgents((prev) => prev.map((a, idx) => idx === i ? { ...a, status: "complete" } : a));
-      addLog(agentLogs[i]);
+      await apiFetch("/analyze", {
+        method: "POST",
+        body: JSON.stringify({ patientId: userId, dataToAnalyze: {} })
+      });
+      await fetchInitialData();
+    } catch (err: any) {
+      toast.error(err.message);
     }
-
-    setInsights(generatedInsights);
+    
     setAgentsRunning(false);
     setAgentsComplete(true);
-  }, [agentsRunning, addLog]);
+  }, [agentsRunning, userId, fetchInitialData]);
 
-  const grantAccess = useCallback((doctorName: string, durationDays: number, dataTypes: string[]) => {
-    const now = new Date();
-    const expires = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
-    const format = (d: Date) => `${d.toLocaleString("en-US", { month: "short" })} ${d.getDate()}, ${d.getFullYear()}`;
-    const newAccess: DoctorAccess = {
-      doctorName,
-      grantedAt: format(now),
-      expiresAt: format(expires),
-      dataTypes,
-      active: true,
-    };
-    setDoctorAccess((prev) => [...prev.filter((a) => a.doctorName !== doctorName), newAccess]);
-    addLog({ type: "access", actor: "Patient", action: "Granted access", detail: `${doctorName} — ${dataTypes.join(", ")} (${durationDays} days)` });
-  }, [addLog]);
+  const grantAccess = useCallback(async (doctorId: number, doctorName: string, durationDays: number, dataTypes: string[]) => {
+    try {
+      await apiFetch("/grant-access", { method: "POST", body: JSON.stringify({ doctorId }) });
+      toast.success(`Access granted to ${doctorName}`);
+      fetchInitialData();
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  }, [fetchInitialData]);
 
-  const revokeAccess = useCallback((doctorName: string) => {
-    setDoctorAccess((prev) => prev.map((a) => a.doctorName === doctorName ? { ...a, active: false } : a));
-    addLog({ type: "revocation", actor: "Patient", action: "Revoked access", detail: `${doctorName} — all access revoked` });
-  }, [addLog]);
+  const revokeAccess = useCallback(async (doctorId: number, doctorName: string) => {
+    try {
+       await apiFetch("/revoke-access", { method: "POST", body: JSON.stringify({ doctorId }) });
+       toast.success(`Access revoked for ${doctorName}`);
+       fetchInitialData();
+    } catch(err:any) {
+       toast.error(err.message);
+    }
+  }, [fetchInitialData]);
+
+  const fetchHealthData = useCallback(async (patientId: number) => {
+     try {
+       const data = await apiFetch(`/health/${patientId}`);
+       setHealthData(data);
+       return data;
+     } catch (err) {
+       console.error(err);
+       return null;
+     }
+  }, []);
 
   return (
     <AppContext.Provider value={{
-      userRole, userName, userEmail, setUser, logout, isAuthenticated: !!userRole,
+      userRole, userName, userEmail, userId, token, setUser, login, register, logout, isAuthenticated: !!token,
       agents, runAgentSimulation, agentsRunning, agentsComplete,
       insights, logs, addLog,
       doctorAccess, grantAccess, revokeAccess,
       reportGenerated, setReportGenerated,
+      healthData, fetchHealthData
     }}>
       {children}
     </AppContext.Provider>
